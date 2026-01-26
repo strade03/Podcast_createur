@@ -44,7 +44,7 @@ jobs:
 
       - name: Compilation
         run: |
-          qmake podcast_createur.pro CONFIG+=release
+          qmake PodcastCreateur.pro CONFIG+=release
           make -j$(sysctl -n hw.ncpu)
 
       - name: Création du paquet et Signature
@@ -107,7 +107,7 @@ jobs:
 
       - name: Compilation
         run: |
-          qmake podcast_createur.pro CONFIG+=release
+          qmake PodcastCreateur.pro CONFIG+=release
           make -j$(nproc)
 
       - name: Création de l'AppImage
@@ -182,7 +182,7 @@ jobs:
       - name: Compilation
         shell: cmd
         run: |
-          qmake podcast_createur.pro CONFIG+=release
+          qmake PodcastCreateur.pro CONFIG+=release
           nmake
 
       - name: Préparation des fichiers (Deploy)
