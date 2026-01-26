@@ -1,6 +1,6 @@
 QT       += core gui widgets multimedia
 
-VERSION = 2.3.0
+VERSION = 2.3.0    # 2.3.0 = version dist 1.0
 QMAKE_TARGET_COMPANY = "Mon Studio Podcast"
 QMAKE_TARGET_PRODUCT = "Podcast Createur"
 QMAKE_TARGET_DESCRIPTION = "Editeur audio pour podcast"

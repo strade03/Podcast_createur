@@ -167,66 +167,61 @@ void DraggableListWidget::mouseReleaseEvent(QMouseEvent *event)
     }
 }
 
-// === CORRECTION POUR LE DROP FINAL ===
-// DANS draggablelistwidget.cpp
 // void DraggableListWidget::finishDragState()
 // {
 //     m_isDragging = false;
 //     m_scrollTimer->stop();
 
+//     // 1. Nettoyage visuel immédiat
 //     if (m_floatingWidget) {
-//         delete m_floatingWidget;
+//         m_floatingWidget->deleteLater(); // Plus sûr que delete direct
 //         m_floatingWidget = nullptr;
 //     }
 
+//     // Vérification de sécurité critique
 //     if (m_dummyItem && m_originItem) {
 //         setUpdatesEnabled(false);
 
-//         // 1. Récupération des données
-//         ChronicleWidget* oldCW = qobject_cast<ChronicleWidget*>(itemWidget(m_originItem));
-//         QString name = oldCW ? oldCW->getName() : "Inconnu";
-//         QString path = oldCW ? oldCW->getProjectPath() : "";
+//         QWidget* rawWidget = itemWidget(m_originItem);
+//         ChronicleWidget* oldCW = qobject_cast<ChronicleWidget*>(rawWidget);
+        
+//         // SÉCURITÉ : Si le widget d'origine est perdu ou invalide, on annule tout
+//         if (!oldCW) {
+//              m_originItem->setHidden(false);
+//              delete takeItem(row(m_dummyItem));
+//              m_originItem = nullptr; 
+//              m_dummyItem = nullptr;
+//              m_originWidget = nullptr;
+//              setUpdatesEnabled(true);
+//              return;
+//         }
 
-//         // 2. TRANSFORMATION DU DUMMY EN VRAI ITEM
+//         QString name = oldCW->getName();
+//         QString path = oldCW->getProjectPath();
+
+//         // 2. Transformation du Dummy
 //         m_dummyItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
         
 //         ChronicleWidget* newCW = new ChronicleWidget(name, path);
 //         m_dummyItem->setSizeHint(newCW->sizeHint());
-        
 //         setItemWidget(m_dummyItem, newCW);
         
-//         // 3. SUPPRESSION DE L'ANCIEN
+//         // 3. Suppression de l'ancien
+//         // Note: takeItem transfère la propriété, delete libère la mémoire
 //         delete takeItem(row(m_originItem));
 
-//         // 4. FINALISATION
+//         // 4. Finalisation
 //         setCurrentItem(m_dummyItem);
+        
+//         // RAZ des pointeurs
 //         m_originItem = nullptr;
 //         m_dummyItem = nullptr;
 
 //         setUpdatesEnabled(true);
-
-//         // // ============================================================
-//         // // ZONE DE DEBUG
-//         // // ============================================================
-//         // QString debugInfo = QString("Nombre total d'items : %1\n\n").arg(count());
-        
-//         // for(int i = 0; i < count(); i++) {
-//         //     QListWidgetItem* item = this->item(i);
-//         //     QWidget* w = this->itemWidget(item);
-//         //     ChronicleWidget* cw = qobject_cast<ChronicleWidget*>(w);
-            
-//         //     QString titre = cw ? cw->getName() : "ERREUR (Widget null)";
-            
-//         //     debugInfo += QString("Index %1 : %2\n").arg(i).arg(titre);
-//         // }
-
-//         // QMessageBox::information(this, "DEBUG - Ordre de la liste", debugInfo);
-//         // ============================================================
-
 //         emit orderChanged();
 //     }
 //     else {
-//         // Annulation
+//         // Annulation propre
 //         if (m_originItem) m_originItem->setHidden(false);
 //         if (m_dummyItem) delete takeItem(row(m_dummyItem));
 //         m_originItem = nullptr;
@@ -235,25 +230,26 @@ void DraggableListWidget::mouseReleaseEvent(QMouseEvent *event)
 
 //     m_originWidget = nullptr;
 // }
+
 void DraggableListWidget::finishDragState()
 {
     m_isDragging = false;
     m_scrollTimer->stop();
 
-    // 1. Nettoyage visuel immédiat
+    // 1. Nettoyage visuel immédiat de l'image fantôme
     if (m_floatingWidget) {
-        m_floatingWidget->deleteLater(); // Plus sûr que delete direct
+        m_floatingWidget->deleteLater();
         m_floatingWidget = nullptr;
     }
 
-    // Vérification de sécurité critique
+    // Vérification de sécurité
     if (m_dummyItem && m_originItem) {
         setUpdatesEnabled(false);
 
         QWidget* rawWidget = itemWidget(m_originItem);
         ChronicleWidget* oldCW = qobject_cast<ChronicleWidget*>(rawWidget);
         
-        // SÉCURITÉ : Si le widget d'origine est perdu ou invalide, on annule tout
+        // SÉCURITÉ : Si le widget d'origine est perdu ou invalide
         if (!oldCW) {
              m_originItem->setHidden(false);
              delete takeItem(row(m_dummyItem));
@@ -264,18 +260,27 @@ void DraggableListWidget::finishDragState()
              return;
         }
 
+        // On récupère les infos importantes
         QString name = oldCW->getName();
-        QString path = oldCW->getProjectPath();
+        QSize itemSize = oldCW->sizeHint(); // On garde la taille pour que l'item ne s'écrase pas
 
-        // 2. Transformation du Dummy
+        // 2. CONFIGURATION DU DUMMY (L'ITEM DE DESTINATION)
         m_dummyItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
         
-        ChronicleWidget* newCW = new ChronicleWidget(name, path);
-        m_dummyItem->setSizeHint(newCW->sizeHint());
-        setItemWidget(m_dummyItem, newCW);
+        // --- CORRECTION MAJEURE ICI ---
+        // On transfère le NOM dans les données de l'item (UserRole).
+        // C'est ce que ProjectWindow va lire pour recréer le widget.
+        m_dummyItem->setData(Qt::UserRole, name);
         
-        // 3. Suppression de l'ancien
-        // Note: takeItem transfère la propriété, delete libère la mémoire
+        // On définit la taille (hauteur) de l'item, sinon il va faire 0px de haut sans widget
+        m_dummyItem->setSizeHint(itemSize);
+
+        // ON NE CRÉE PAS LE WIDGET ICI !
+        // On laisse setItemWidget(m_dummyItem, ...) vide.
+        // Cela va permettre à ProjectWindow::onListOrderChanged de détecter
+        // que cet item est "orphelin" et de le recréer proprement avec les connexions.
+        
+        // 3. Suppression de l'ancien item (celui qu'on a déplacé)
         delete takeItem(row(m_originItem));
 
         // 4. Finalisation
@@ -286,6 +291,8 @@ void DraggableListWidget::finishDragState()
         m_dummyItem = nullptr;
 
         setUpdatesEnabled(true);
+        
+        // Ceci va déclencher ProjectWindow::onListOrderChanged
         emit orderChanged();
     }
     else {
@@ -298,7 +305,6 @@ void DraggableListWidget::finishDragState()
 
     m_originWidget = nullptr;
 }
-
 
 void DraggableListWidget::doAutoScroll()
 {
