@@ -24,7 +24,7 @@
 #include <QDialogButtonBox>
 #include <QThread> 
 #include <QtEndian>
-// debut modif
+
 // ============================================================================
 // CODE EXISTANT AVEC MODIFICATIONS
 // ============================================================================
