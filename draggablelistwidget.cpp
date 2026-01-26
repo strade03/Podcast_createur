@@ -319,5 +319,3 @@ void DraggableListWidget::leaveEvent(QEvent *event)
     QListWidget::leaveEvent(event);
     m_scrollTimer->stop();
 }
-
-// version ok sauf pour dernier

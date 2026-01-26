@@ -222,7 +222,7 @@ void ChronicleWidget::refreshStatus()
             btnAction->setIcon(QIcon(":/icones/ic_play.png"));
             btnAction->setToolTip("Écouter");
         } else {
-            btnAction->setIcon(QIcon(":/icones/record.png"));
+            btnAction->setIcon(QIcon(":/icones/ic_record.png"));
             btnAction->setToolTip("Enregistrer");
         }
     }
