@@ -3,7 +3,7 @@
 #define MyAppVersion "1.0"
 #define MyAppPublisher "Stéphane Verdier"
 #define MySite "https://estrade03.forge.apps.education.fr/"
-#define MyAppExeName "podcast_createur.exe"
+#define MyAppExeName "PodcastCreateur.exe"
 ; Le dossier généré par le script YAML
 #define SourceFolder "deploy" 
 
@@ -41,7 +41,7 @@ WizardStyle=modern
 ; Métadonnées du fichier exe
 VersionInfoVersion={#MyAppVersion}
 VersionInfoDescription=Application de création de podcast
-VersionInfoCopyright=© 2025 {#MyAppPublisher}
+VersionInfoCopyright=© 2026 {#MyAppPublisher}
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 VersionInfoCompany={#MyAppPublisher}

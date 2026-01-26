@@ -50,21 +50,21 @@ jobs:
       - name: Création du paquet et Signature
         run: |
           mkdir -p deploy
-          cp -r podcast_createur.app deploy/
-          mkdir -p deploy/podcast_createur.app/Contents/MacOS
+          cp -r PodcastCreateur.app deploy/
+          mkdir -p deploy/PodcastCreateur.app/Contents/MacOS
           
           # COPIE DES BINAIRES STATIQUES (ceux qu'on vient de télécharger)
-          cp ffmpeg deploy/podcast_createur.app/Contents/MacOS/
+          cp ffmpeg deploy/PodcastCreateur.app/Contents/MacOS/
           
           # Nettoyage et préparation Qt
-          macdeployqt deploy/podcast_createur.app -verbose=2
+          macdeployqt deploy/PodcastCreateur.app -verbose=2
           
           # Signature (Force + Deep pour signer aussi ffmpeg à l'intérieur)
-          codesign --force --deep --sign - deploy/podcast_createur.app
+          codesign --force --deep --sign - deploy/PodcastCreateur.app
           
           # Création du DMG avec hdiutil
-          hdiutil create -volname "PodcastCreateur" -srcfolder deploy/podcast_createur.app -ov -format UDZO deploy/podcast_createur.dmg
-          mv deploy/podcast_createur.dmg PodcastCreateur_macOS.dmg
+          hdiutil create -volname "PodcastCreateur" -srcfolder deploy/PodcastCreateur.app -ov -format UDZO deploy/PodcastCreateur.dmg
+          mv deploy/PodcastCreateur.dmg PodcastCreateur_macOS.dmg
 
       - name: Upload Artifact macOS
         uses: actions/upload-artifact@v4
@@ -121,7 +121,7 @@ jobs:
           [Desktop Entry]
           Type=Application
           Name=PodcastCreateur
-          Exec=podcast_createur
+          Exec=PodcastCreateur
           Icon=default
           Categories=AudioVideo;Audio;
           EOF
@@ -134,7 +134,7 @@ jobs:
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH
           
           # -unsupported-allow-new-glibc est nécessaire sur Ubuntu 22.04+
-          ./linuxdeployqt-continuous-x86_64.AppImage ./podcast_createur -appimage -unsupported-allow-new-glibc -extra-plugins=iconengines,platformthemes
+          ./linuxdeployqt-continuous-x86_64.AppImage ./PodcastCreateur -appimage -unsupported-allow-new-glibc -extra-plugins=iconengines,platformthemes
 
           # 4. Renommer
           mv PodcastCreateur-*.AppImage PodcastCreateur_Linux.AppImage
@@ -192,10 +192,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path deploy
           
           # 2. Copier l'exécutable
-          if (Test-Path "release/podcast_createur.exe") {
-              Copy-Item "release/podcast_createur.exe" "deploy/"
+          if (Test-Path "release/PodcastCreateur.exe") {
+              Copy-Item "release/PodcastCreateur.exe" "deploy/"
           } else {
-              Copy-Item "podcast_createur.exe" "deploy/"
+              Copy-Item "PodcastCreateur.exe" "deploy/"
           }
           
           # 3. Copier FFmpeg
@@ -208,7 +208,7 @@ jobs:
           }
 
           # 5. Ajouter toutes les DLLs Qt automatiquement
-          windeployqt --release --compiler-runtime --no-translations deploy/podcast_createur.exe
+          windeployqt --release --compiler-runtime --no-translations deploy/PodcastCreateur.exe
 
       - name: Création de l'installeur (Inno Setup)
         shell: cmd
