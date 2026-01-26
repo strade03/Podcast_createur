@@ -30,8 +30,8 @@ PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=.
 OutputBaseFilename=PodcastCreateur_Setup_Windows
 
-; Icône (Doit être présente dans ton dépôt git sous icones/icon.ico)
-SetupIconFile=icones/icon.ico
+; Icône (Doit être présente dans ton dépôt git sous icones/icon64x64.ico)
+SetupIconFile=icones/icon64x64.ico
 
 ; Compression (LZMA2 est bien meilleur que ZIP pour un installeur)
 Compression=lzma2
