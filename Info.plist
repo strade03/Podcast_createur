@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- IDENTIFICATION -->
+    <key>CFBundleExecutable</key>
+    <string>PodcastCreateur</string>
+    
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
+    
+    <key>CFBundleIdentifier</key>
+    <string>com.podcastcreator.app</string>
+    
+    <key>CFBundleName</key>
+    <string>PodcastCreateur</string>
+    
+    <key>CFBundleDisplayName</key>
+    <string>Podcast Createur</string>
+    
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    
+    <key>LSMinimumSystemVersion</key>
+    <string>10.15</string>
+    
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2025 Podcast Createur. Tous droits réservés.</string>
+
+    <!-- PERMISSIONS (CRITIQUE POUR L'ENREGISTREMENT) -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Podcast Createur a besoin d'accéder à votre microphone pour enregistrer vos chroniques.</string>
+    
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Podcast Createur a besoin d'accéder à vos documents pour sauvegarder vos projets d'émission.</string>
+    
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Podcast Createur a besoin d'accéder à vos téléchargements pour importer des fichiers audio.</string>
+
+    <!-- FICHIERS SUPPORTÉS -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Fichier audio</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.audio</string>
+                <string>public.mp3</string>
+                <string>com.microsoft.waveform-audio</string>
+                <string>public.mpeg-4-audio</string>
+            </array>
+            <key>LSHandlerRank</key>
+            <string>Default</string>
+        </dict>
+    </array>
+    
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.music</string>
+    
+    <key>NSAppSleepDisabled</key>
+    <true/>
+</dict>
+</plist>
