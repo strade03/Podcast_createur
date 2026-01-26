@@ -1,5 +1,5 @@
 # Podcast Createur
-
+ 
 **Podcast Createur** est une application de bureau développée en C++ avec le framework Qt 6. Elle permet de créer, enregistrer, éditer et assembler des épisodes de podcast de manière intuitive.
 
 L'application est conçue pour gérer un projet d'émission sous forme de "chroniques" (segments) que l'on peut déplacer, éditer individuellement et fusionner en un fichier final.
