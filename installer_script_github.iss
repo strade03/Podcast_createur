@@ -30,8 +30,8 @@ PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=.
 OutputBaseFilename=PodcastCreateur_Setup_Windows
 
-; Icône (Doit être présente dans ton dépôt git sous icones/fusionner.ico)
-SetupIconFile=icones/fusionner.ico
+; Icône (Doit être présente dans ton dépôt git sous icones/icon.ico)
+SetupIconFile=icones/icon.ico
 
 ; Compression (LZMA2 est bien meilleur que ZIP pour un installeur)
 Compression=lzma2
