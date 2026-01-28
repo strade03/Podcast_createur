@@ -127,6 +127,10 @@ void AudioEditor::init()
 
 void AudioEditor::openBackgroundMixer()
 {
+    // Sécurité : arrêter la lecture si en cours
+    if (player->playbackState() == QMediaPlayer::PlayingState) {
+        stopPlayback();
+    }
     // Vérification de sécurité
     if (!audioSamplesPtr || audioSamplesPtr->isEmpty()) return;
 
@@ -788,6 +792,7 @@ void AudioEditor::playPause()
         player->pause();
     } else {
         ui->btnPlay->setIcon(QIcon(":/icones/pause.png"));
+        
 
         if (player->playbackState() == QMediaPlayer::StoppedState) {
             // 1. On récupère la position VISUELLE
@@ -808,6 +813,7 @@ void AudioEditor::playPause()
 
     ui->btnStop->setEnabled(true);
     ui->btnNormalizeAll->setEnabled(false);
+    ui->btnAddTapis->setEnabled(false);
 }
 
 void AudioEditor::stopPlayback()
@@ -820,7 +826,7 @@ void AudioEditor::stopPlayback()
 
     ui->btnStop->setEnabled(false);
     if (!waveformWidget->hasSelection()) ui->btnNormalizeAll->setEnabled(true);
-
+    ui->btnAddTapis->setEnabled(true);
 
     const qint64 startposition = waveformWidget->getSelectionStart();
     qint64 targetPos = (startposition > 0) ? startposition : 0;
@@ -845,6 +851,9 @@ void AudioEditor::handleZoomChanged(const QString &zf)
 
 void AudioEditor::handleSelectionChanged(qint64 s, qint64 e)
 {
+    bool isPlaying = (player->playbackState() == QMediaPlayer::PlayingState);
+    bool hasAudioLoaded = (audioSamplesPtr && !audioSamplesPtr->isEmpty());
+
     qint64 realS = s ;
     qint64 realE = e ;
 
@@ -853,15 +862,16 @@ void AudioEditor::handleSelectionChanged(qint64 s, qint64 e)
             .arg(timeToPosition(realS, "hh:mm:ss.zzz"))
             .arg(timeToPosition(realE, "hh:mm:ss.zzz"))
             .arg(timeToPosition(realE - realS, "hh:mm:ss.zzz")));
-        ui->btnCut->setEnabled(true);
-        ui->btnNormalize->setEnabled(true);
+        ui->btnCut->setEnabled(!isPlaying);
+        ui->btnNormalize->setEnabled(!isPlaying);
         ui->btnNormalizeAll->setEnabled(false);
+        ui->btnAddTapis->setEnabled(!isPlaying);
     } else {
         ui->selectionLabel->clear();
         ui->btnCut->setEnabled(false);
         ui->btnNormalize->setEnabled(false);
-    ui->btnAddTapis->setEnabled(e);
-        ui->btnNormalizeAll->setEnabled(true);
+        ui->btnAddTapis->setEnabled(!isPlaying);
+        ui->btnNormalizeAll->setEnabled(!isPlaying && hasAudioLoaded);
     }
     ui->positionLabel->setText(timeToPosition(realS,"hh:mm:ss"));
 }
@@ -873,6 +883,8 @@ void AudioEditor::handleMediaStatusChanged(QMediaPlayer::MediaStatus status)
         waveformWidget->setPlayheadPosition(pos);
         ui->btnPlay->setIcon(QIcon(":/icones/play.png"));
         ui->btnStop->setEnabled(false);
+        ui->btnAddTapis->setEnabled(true); 
+        if (!waveformWidget->hasSelection()) ui->btnNormalizeAll->setEnabled(true);
     }
 }
 
