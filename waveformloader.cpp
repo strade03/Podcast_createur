@@ -32,8 +32,9 @@ void WaveformLoader::process()
     QStringList args;
     args << "-v" << "error" << "-i" << m_filePath;
 
-    if (channels > 1) args << "-af" << "pan=mono|c0=0.5*c0+0.5*c1";
-    else args << "-ac" << "1"; 
+    // if (channels > 1) args << "-af" << "pan=mono|c0=0.5*c0+0.5*c1";
+    // else 
+    args << "-ac" << "1"; 
     
     args << "-ar" << "44100" << "-f" << "s16le" << "-";
 

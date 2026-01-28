@@ -2,6 +2,7 @@
 #include "ui_audioeditor.h"
 #include "projectutils.h"
 #include "waveformloader.h"
+#include "backgroundmixerdialog.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -41,6 +42,7 @@ AudioEditor::AudioEditor(const QString &filePath, const QString &workingDir, QWi
     : AUDIOEDITOR_BASE(parent)
     , modeAutonome(false)
     , currentAudioFile(filePath)
+    , originalFilePath(filePath)
     , isTempRecording(isTempRecording)
     , workingDirectory(workingDir)
     , isLoadingFile(false)
@@ -89,6 +91,7 @@ void AudioEditor::init()
     setButtonsEnabled(false);
     audioOutput->setVolume(0.5);
     player->setAudioOutput(audioOutput);
+    merger = new AudioMerger(this);
 
     connect(ui->btnOpen,      &QPushButton::clicked, this, &AudioEditor::openFile);
     connect(ui->btnPlay,      &QPushButton::clicked, this, &AudioEditor::playPause);
@@ -98,6 +101,7 @@ void AudioEditor::init()
     connect(ui->btnSave,      &QPushButton::clicked, this, &AudioEditor::saveModifiedAudio);
     connect(ui->btnNormalizeAll, &QPushButton::clicked, this, &AudioEditor::normalizeSelection);
     connect(ui->btnNormalize,    &QPushButton::clicked, this, &AudioEditor::normalizeSelection);
+    connect(ui->btnAddTapis,     &QPushButton::clicked, this, &AudioEditor::openBackgroundMixer);
     connect(ui->btnZoomIn,       &QPushButton::clicked, waveformWidget, &WaveformWidget::zoomIn);
     connect(ui->btnZoomOut,      &QPushButton::clicked, waveformWidget, &WaveformWidget::zoomOut);
 
@@ -121,6 +125,96 @@ void AudioEditor::init()
         ui->btnOpen->setVisible(false);
 }
 
+void AudioEditor::openBackgroundMixer()
+{
+    // Vérification de sécurité
+    if (!audioSamplesPtr || audioSamplesPtr->isEmpty()) return;
+
+    // 1. On sauvegarde l'état actuel en WAV temporaire pour que FFMPEG puisse le lire
+    QString tempDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    QString currentVoiceWav = tempDir + "/temp_pre_mix.wav";
+    
+    // On écrit le fichier wav temporaire
+    if (!writeWavFromInt16Buffer(currentVoiceWav)) {
+        QMessageBox::warning(this, tr("Erreur"), tr("Impossible de préparer le fichier pour le mixage."));
+        return;
+    }
+
+    // 2. On ouvre la boite de dialogue de mixage
+    BackgroundMixerDialog dlg(currentVoiceWav, this);
+    
+    if (dlg.exec() == QDialog::Accepted) {
+        QString jingle = dlg.getSelectedJingle();
+        
+        // Si aucun jingle sélectionné ou chemin vide
+        if (jingle.isEmpty()) {
+            QFile::remove(currentVoiceWav);
+            return;
+        }
+        
+        float vol = dlg.getVolume();
+        float offset = dlg.getOffsetSeconds(); 
+
+        // 3. Traitement (Barre de chargement)
+        QProgressDialog pd(tr("Mixage en cours..."), "", 0, 0, this);
+        pd.setWindowModality(Qt::WindowModal);
+        pd.setCancelButton(nullptr);
+        pd.show();
+        
+        QString outputMix = tempDir + "/temp_mixed_result.wav";
+        
+        // On utilise une boucle locale pour attendre que AudioMerger finisse le travail
+        QEventLoop loop;
+        bool success = false;
+        
+        // Connexions temporaires pour cette opération
+        QMetaObject::Connection connFinished = connect(merger, &AudioMerger::finished, 
+            [&loop, &success](bool ok) {
+                success = ok;
+                loop.quit();
+            });
+        QMetaObject::Connection connError = connect(merger, &AudioMerger::error, 
+            [&loop, &success](const QString&) {
+                success = false;
+                loop.quit();
+            });
+        
+        // Appel de la fusion
+        merger->mixWithBackground(currentVoiceWav, jingle, vol, offset, outputMix);
+        
+        // On attend la fin du signal finished ou error
+        loop.exec();
+        
+        // Déconnecter les connexions temporaires
+        disconnect(connFinished);
+        disconnect(connError);
+        
+        pd.close();
+        
+        if (success && QFile::exists(outputMix)) {
+            // 4. On remplace le son actuel par le son mixé
+            isModified = true;
+            
+            // ════════════════════════════════════════════════════════════════
+            // CORRECTION : 
+            // - currentAudioFile = fichier temporaire mixé (pour la lecture)
+            // - originalFilePath reste INCHANGÉ (pour la sauvegarde)
+            // ════════════════════════════════════════════════════════════════
+            currentAudioFile = outputMix;
+            // NE PAS TOUCHER À originalFilePath !
+            
+            // On recharge le nouveau fichier dans l'interface
+            startLoadingInThread(outputMix);
+        } else {
+             QMessageBox::warning(this, tr("Erreur"), tr("Le mixage a échoué."));
+        }
+    }
+    
+    // Nettoyage du fichier temporaire source
+    QFile::remove(currentVoiceWav);
+}
+
+
 void AudioEditor::setButtonsEnabled(bool e)
 {
     ui->btnPlay->setEnabled(e);
@@ -129,6 +223,7 @@ void AudioEditor::setButtonsEnabled(bool e)
     ui->btnStop->setEnabled(false);
     ui->btnCut->setEnabled(false);
     ui->btnNormalize->setEnabled(false);
+    ui->btnAddTapis->setEnabled(e);
     ui->btnSave->setEnabled(e);
     ui->btnZoomIn->setEnabled(e);
     ui->btnZoomOut->setEnabled(e);
@@ -159,11 +254,11 @@ void AudioEditor::openFile()
     
     if (currentAudioFile.isEmpty()) return;
 
+    originalFilePath = currentAudioFile;
+
     // Nettoyage avant chargement
     totalSamples = 0;
     
-    // AU LIEU DE : extractWaveformWithFFmpeg(currentAudioFile);
-    // ON FAIT :
     startLoadingInThread(currentAudioFile);
 }
 
@@ -328,6 +423,7 @@ void AudioEditor::cutSelection()
     setButtonsEnabled(true);
     ui->btnCut->setEnabled(false);
     ui->btnNormalize->setEnabled(false);
+    ui->btnAddTapis->setEnabled(e);
     
     updatePlaybackFromModifiedData();
     
@@ -435,16 +531,14 @@ void AudioEditor::saveModifiedAudio()
 
     if (!audioSamplesPtr || audioSamplesPtr->isEmpty()) {
         QMessageBox::warning(this, tr("Erreur"), tr("Aucun signal audio à sauvegarder."));
-        
-        // Si on annule, on recharge le fichier original pour réactiver le player
         if (player) player->setSource(QUrl::fromLocalFile(currentAudioFile));
         return;
     }
 
     QString targetFile;
 
-
     if (isTempRecording) {
+        // Mode enregistrement : demander un nom de fichier
         QString timeStamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss");
         QString defaultName = QString("Enregistrement_%1").arg(timeStamp);
         QDialog dialog(this);
@@ -455,7 +549,6 @@ void AudioEditor::saveModifiedAudio()
         QLineEdit *lineEdit = new QLineEdit(&dialog);
         lineEdit->setText(defaultName);
         layout->addWidget(lineEdit);
-        // QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
         QDialogButtonBox *buttons = new QDialogButtonBox(&dialog);
         buttons->addButton("Sauvegarder", QDialogButtonBox::AcceptRole);
         buttons->addButton("Annuler", QDialogButtonBox::RejectRole);
@@ -467,20 +560,25 @@ void AudioEditor::saveModifiedAudio()
         bool ok = (dialog.exec() == QDialog::Accepted);
         QString fileName = lineEdit->text();
         if (!ok || fileName.isEmpty()) {
-            // Si annulation, on recharge le son pour ne pas planter
              player->setSource(QUrl::fromLocalFile(currentAudioFile));
              return;
         }
         if (!fileName.endsWith(".wav", Qt::CaseInsensitive)) fileName += ".wav";
         targetFile = QDir(workingDirectory).filePath(fileName);
         if (QFile::exists(targetFile)) {
-             if (QMessageBox::question(this, tr("Existe"), tr("Écraser ?"), QMessageBox::Yes|QMessageBox::No) != QMessageBox::Yes) {
+             if (QMessageBox::question(this, tr("Existe"), tr("Écraser ?"), 
+                 QMessageBox::Yes|QMessageBox::No) != QMessageBox::Yes) {
                  player->setSource(QUrl::fromLocalFile(currentAudioFile));
                  return;
              }
         }
     } else {
-        targetFile = currentAudioFile;
+        // ════════════════════════════════════════════════════════════════════
+        // CORRECTION : Utiliser originalFilePath au lieu de currentAudioFile
+        // Ainsi, même après un mixage avec tapis, on écrase le fichier original
+        // ════════════════════════════════════════════════════════════════════
+        targetFile = originalFilePath;  // ← CHANGEMENT ICI
+        
         if (targetFile.isEmpty()) {
             QMessageBox::warning(this, tr("Erreur"), tr("Aucun fichier cible défini."));
             return;
@@ -498,7 +596,10 @@ void AudioEditor::saveModifiedAudio()
         msgBox.button(QMessageBox::No)->setText(tr("Non"));
         
         int reply = msgBox.exec();
-        if (reply != QMessageBox::Yes) return;
+        if (reply != QMessageBox::Yes) {
+            player->setSource(QUrl::fromLocalFile(currentAudioFile));
+            return;
+        }
     }
     
     QApplication::setOverrideCursor(Qt::WaitCursor);
@@ -514,34 +615,29 @@ void AudioEditor::saveModifiedAudio()
 
     bool success = false;
 
-    // ========================================================================
-    // CORRECTION 3 : BOUCLE DE RÉESSAI POUR LE FICHIER VERROUILLÉ (WAV)
-    // ========================================================================
+    // Gestion WAV
     if (targetFile.endsWith(".wav", Qt::CaseInsensitive)) {
         
-        // Si le fichier existe, on essaie de le supprimer avec insistance
         if (QFile::exists(targetFile)) {
             bool removed = false;
-            // On essaie 10 fois avec 100ms de pause (1 seconde max)
             for (int i = 0; i < 10; ++i) {
                 if (QFile::remove(targetFile)) {
                     removed = true;
                     break;
                 }
-                QThread::msleep(100); // Pause pour laisser Windows libérer le fichier
+                QThread::msleep(100);
             }
 
             if (!removed) {
                 QMessageBox::warning(this, tr("Erreur"), 
-                    tr("Impossible d'écraser le fichier.\nIl est peut-être utilisé par une autre application ou l'antivirus."));
+                    tr("Impossible d'écraser le fichier.\nIl est peut-être utilisé par une autre application."));
                 QFile::remove(tempWav);
                 QApplication::restoreOverrideCursor();
-                player->setSource(QUrl::fromLocalFile(currentAudioFile)); // On rétablit
+                player->setSource(QUrl::fromLocalFile(currentAudioFile));
                 return;
             }
         }
         
-        // Copie du nouveau fichier
         if (QFile::copy(tempWav, targetFile)) {
             success = true;
         } else {
@@ -550,20 +646,16 @@ void AudioEditor::saveModifiedAudio()
         QFile::remove(tempWav);
     } 
     else {
-        // ====================================================================
-        // GESTION MP3 / AUTRES (Conversion FFmpeg)
-        // ====================================================================
-        // Pour le MP3, comme on a déjà appliqué l'Auto-Limiter au début,
-        // le son envoyé à FFmpeg est propre et ne saturera pas.
-        
+        // Gestion MP3/autres formats via FFmpeg
         QString ffmpegPath = AudioMerger::getFFmpegPath();
         QStringList args;
         args << "-y" << "-i" << tempWav;
-        // Paramètres spécifiques selon le format de sortie
+        
         if (targetFile.endsWith(".mp3", Qt::CaseInsensitive)) {
             args << "-codec:a" << "libmp3lame" << "-q:a" << "2"; 
         } 
-        else if (targetFile.endsWith(".m4a", Qt::CaseInsensitive) || targetFile.endsWith(".aac", Qt::CaseInsensitive)) {
+        else if (targetFile.endsWith(".m4a", Qt::CaseInsensitive) || 
+                 targetFile.endsWith(".aac", Qt::CaseInsensitive)) {
             args << "-codec:a" << "aac" << "-b:a" << "192k";
         }
         else if (targetFile.endsWith(".ogg", Qt::CaseInsensitive)) {
@@ -572,23 +664,12 @@ void AudioEditor::saveModifiedAudio()
         else if (targetFile.endsWith(".flac", Qt::CaseInsensitive)) {
             args << "-codec:a" << "flac";
         }
-        else if (targetFile.endsWith(".opus", Qt::CaseInsensitive)) {
-            args << "-codec:a" << "libopus" << "-b:a" << "128k";
-        }
-        else if (targetFile.endsWith(".ac3", Qt::CaseInsensitive)) {
-            args << "-codec:a" << "ac3" << "-b:a" << "192k";
-        }
-        else if (targetFile.endsWith(".wma", Qt::CaseInsensitive)) {
-            args << "-codec:a" << "wmav2" << "-b:a" << "192k";
-        }
-        // Pour aiff et autres, FFmpeg détecte souvent automatiquement, 
-        // ou on laisse par défaut.
         
         args << targetFile;
         QProcess ff;
         ff.start(ffmpegPath, args);
         
-        if (ff.waitForFinished(30000) && ff.exitStatus() == QProcess::NormalExit) {
+        if (ff.waitForFinished(30000) && ff.exitStatus() == QProcess::NormalExit && ff.exitCode() == 0) {
             success = true;
         } else {
             QString err = ff.readAllStandardError();
@@ -602,12 +683,18 @@ void AudioEditor::saveModifiedAudio()
     if (success) {
         isModified = false;
         if (isTempRecording) isTempRecording = false;
+        
+        // ════════════════════════════════════════════════════════════════════
+        // CORRECTION : Mettre à jour les DEUX variables
+        // ════════════════════════════════════════════════════════════════════
+        originalFilePath = targetFile;
         currentAudioFile = targetFile;
-        setWindowTitle(tr("Éditeur Audio - ") + QFileInfo(currentAudioFile).fileName());
+        
+        setWindowTitle(tr("Éditeur Audio - ") + QFileInfo(targetFile).fileName());
         QMessageBox::information(this, tr("Succès"), tr("Fichier sauvegardé avec succès."));
     }
     
-    // IMPORTANT : On recharge le fichier frais
+    // Recharger le fichier final
     player->setSource(QUrl::fromLocalFile(currentAudioFile));
 }
 
@@ -772,6 +859,7 @@ void AudioEditor::handleSelectionChanged(qint64 s, qint64 e)
         ui->selectionLabel->clear();
         ui->btnCut->setEnabled(false);
         ui->btnNormalize->setEnabled(false);
+    ui->btnAddTapis->setEnabled(e);
         ui->btnNormalizeAll->setEnabled(true);
     }
     ui->positionLabel->setText(timeToPosition(realS,"hh:mm:ss"));

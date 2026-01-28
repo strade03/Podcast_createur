@@ -1,7 +1,6 @@
 #include "audiomerger.h"
 #include <QMessageBox>
 #include <QRegularExpression>
-#include <QDebug>
 #include <QTime>
 #include <QLocale>
 #include <QCoreApplication>
@@ -13,6 +12,14 @@
 #include <QTimer>
 #include <QEventLoop>
 #include <QDataStream>
+#include <QDebug>
+
+// A Supp pour debug
+#include <QClipboard>    
+#include <QApplication>  
+#include <QDir>
+#include <QInputDialog>   
+#include <QLineEdit>
 
 // ============================================================================
 // INITIALISATION DES VARIABLES STATIQUES
@@ -438,4 +445,97 @@ void AudioMerger::processFinished(int exitCode, QProcess::ExitStatus exitStatus)
 
 void AudioMerger::processError(QProcess::ProcessError error) {
     emit this->error("Erreur FFmpeg code: " + QString::number(error));
+}
+
+
+void AudioMerger::mixWithBackground(const QString &voiceFile, const QString &musicFile, 
+                                     float volumeMusic, float offsetSeconds, const QString &outputFile) 
+{
+    QString ffmpegPath = getFFmpegPath();
+    
+    QStringList args;
+    args << "-y";  // Écraser si existe
+    args << "-i" << voiceFile;
+    args << "-stream_loop" << "-1" << "-i" << musicFile;
+    
+    // Force le point décimal pour les valeurs numériques
+    QString volStr = QLocale::c().toString(volumeMusic, 'f', 2);
+    
+    // ════════════════════════════════════════════════════════════════════════
+    // CONSTRUCTION DU FILTRE SELON LE DÉCALAGE
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    // offsetSeconds > 0 : Le tapis démarre EN RETARD (après la voix)
+    //   → On ajoute un délai (adelay) sur le tapis [1:a]
+    //
+    // offsetSeconds < 0 : Le tapis démarre EN AVANCE (avant la voix)
+    //   → On ajoute un délai (adelay) sur la voix [0:a]
+    //   → ET on doit étendre la durée finale pour inclure le début du tapis
+    //
+    // offsetSeconds = 0 : Pas de décalage
+    //
+    // ════════════════════════════════════════════════════════════════════════
+    
+    QString filter;
+    
+    if (offsetSeconds > 0.01f) {
+        // Tapis EN RETARD : ajouter délai sur la musique
+        int delayMs = static_cast<int>(offsetSeconds * 1000);
+        QString delayStr = QString::number(delayMs);
+        
+        filter = QString(
+            "[0:a]aformat=sample_rates=44100:channel_layouts=stereo[v];"
+            "[1:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=%1,adelay=%2|%2[m];"
+            "[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]"
+        ).arg(volStr).arg(delayStr);
+    }
+    else if (offsetSeconds < -0.01f) {
+        // Tapis EN AVANCE : ajouter délai sur la voix + padding au début
+        int delayMs = static_cast<int>(-offsetSeconds * 1000);  // Valeur positive
+        QString delayStr = QString::number(delayMs);
+        
+        // On ajoute du silence au début de la voix avec adelay
+        // Et on utilise duration=longest pour capturer le début du tapis
+        // Puis on coupe à la fin avec atrim si nécessaire
+        filter = QString(
+            "[0:a]aformat=sample_rates=44100:channel_layouts=stereo,adelay=%2|%2[v];"
+            "[1:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=%1[m];"
+            "[v][m]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[premix];"
+            "[premix]atrim=start=0:duration=%3[out]"
+        ).arg(volStr).arg(delayStr).arg(getFileDuration(voiceFile) + (-offsetSeconds));
+        
+        // Note: On calcule la durée totale = durée voix + offset négatif
+    }
+    else {
+        // Pas de décalage significatif
+        filter = QString(
+            "[0:a]aformat=sample_rates=44100:channel_layouts=stereo[v];"
+            "[1:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=%1[m];"
+            "[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]"
+        ).arg(volStr);
+    }
+    
+    args << "-filter_complex" << filter;
+    args << "-map" << "[out]";
+    args << "-c:a" << "pcm_s16le";
+    args << outputFile;
+
+    if (!ffmpegProcess) {
+        ffmpegProcess = new QProcess(this);
+        ffmpegProcess->setProcessChannelMode(QProcess::MergedChannels);
+        
+        connect(ffmpegProcess, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status){
+            QString log = QString::fromLocal8Bit(ffmpegProcess->readAll());
+            if (code != 0) {
+                qWarning() << "FFmpeg error:" << log;
+                emit error(log);
+            }
+            emit finished(code == 0 && status == QProcess::NormalExit);
+        });
+        
+        connect(ffmpegProcess, &QProcess::errorOccurred, this, &AudioMerger::processError);
+    }
+    
+    ffmpegProcess->start(ffmpegPath, args);
+    emit started();
 }

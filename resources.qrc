@@ -34,5 +34,6 @@
         <file>icones/ic_script.png</file>
         <file>icones/ic_stop.png</file>
         <file>icones/ic_stop_read.png</file>
+        <file>icones/add_tapis.png</file>
     </qresource>
 </RCC>

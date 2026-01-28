@@ -1,6 +1,6 @@
 QT       += core gui widgets multimedia
 
-VERSION = 2.3.0    # 2.3.0 = version dist 1.0
+VERSION = 2.4.0    # 2.3.0 = version dist 1.0
 QMAKE_TARGET_COMPANY = "Mon Studio Podcast"
 QMAKE_TARGET_PRODUCT = "Podcast Createur"
 QMAKE_TARGET_DESCRIPTION = "Editeur audio pour podcast"
@@ -31,7 +31,8 @@ SOURCES += \
     projectutils.cpp \    
     jinglewidget.cpp  \
     projectmanager.cpp \
-    waveformloader.cpp
+    waveformloader.cpp \
+    backgroundmixerdialog.cpp
 HEADERS += \
     homedialog.h \
     projectwindow.h \
@@ -49,7 +50,8 @@ HEADERS += \
     projectutils.h \    
     jinglewidget.h  \
     projectmanager.h \   
-    waveformloader.h
+    waveformloader.h \
+    backgroundmixerdialog.h
 
 FORMS += \
     audioeditor.ui

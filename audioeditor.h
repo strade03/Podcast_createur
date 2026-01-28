@@ -49,6 +49,7 @@ private slots:
     void cutSelection();
     void saveModifiedAudio();
     void normalizeSelection();
+    void openBackgroundMixer();
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -69,11 +70,13 @@ private:
     void init();
     Ui::AudioEditorWidget *ui;
     QMediaPlayer   *player;
+    AudioMerger *merger;
     QAudioOutput   *audioOutput;
     WaveformWidget *waveformWidget;
     QSharedPointer<QVector<qint16>> audioSamplesPtr;
     qint64          totalSamples;
     QString         currentAudioFile;
+    QString originalFilePath;
     bool            modeAutonome;   
     bool isLoadingFile;
     void extractWaveformWithFFmpeg(const QString &filePath);

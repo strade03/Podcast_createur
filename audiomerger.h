@@ -8,6 +8,10 @@
 class AudioMerger : public QObject {
     Q_OBJECT
 public:
+    // Mixage voix + musique (loop)
+    // volumeMusic : 0.0 à 1.0
+    void mixWithBackground(const QString &voiceFile, const QString &musicFile, float volumeMusic, float offsetSeconds, const QString &outputFile);
+
     AudioMerger(QObject* parent = nullptr);
     
     static void init();
