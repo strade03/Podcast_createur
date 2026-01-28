@@ -100,14 +100,35 @@ void BackgroundMixerDialog::setupUi() {
     mainLayout->addLayout(offsetLayout);
 
     connect(sliderOffset, &QSlider::valueChanged, this, &BackgroundMixerDialog::onOffsetChanged);
-    // ════════════════════════════════════════════════════════════════════════
 
-    // 4. Prévisualisation
+    // ════════════════════════════════════════════════════════════════════════
+    // 4. Option Ducking (atténuation automatique)
+    // ════════════════════════════════════════════════════════════════════════
+    QHBoxLayout *duckingLayout = new QHBoxLayout();
+    
+    chkDucking = new QCheckBox(tr("Atténuer le tapis quand je parle"), this);
+    chkDucking->setChecked(false);
+    duckingLayout->addWidget(chkDucking);
+    duckingLayout->addStretch();
+    
+    mainLayout->addLayout(duckingLayout);
+    
+    // Label d'info (affiché sous le bouton prévisualiser quand l'option est cochée)
+    lblDuckingInfo = new QLabel(this);
+    lblDuckingInfo->setText(tr("⚠ L'atténuation auto n'est pas incluse dans la prévisualisation"));
+    lblDuckingInfo->setStyleSheet("QLabel { color: #888888; font-style: italic; font-size: 11px; }");
+    lblDuckingInfo->setVisible(false);
+    
+    connect(chkDucking, &QCheckBox::toggled, lblDuckingInfo, &QLabel::setVisible);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 5. Prévisualisation
     btnPreview = new QPushButton(tr("Prévisualiser"), this);
     btnPreview->setIcon(QIcon(":/icones/play.png"));
     btnPreview->setCheckable(true);
     connect(btnPreview, &QPushButton::clicked, this, &BackgroundMixerDialog::togglePreview);
     mainLayout->addWidget(btnPreview);
+    mainLayout->addWidget(lblDuckingInfo);
 
     mainLayout->addStretch();
 
@@ -194,6 +215,11 @@ void BackgroundMixerDialog::togglePreview() {
         isPreviewing = true;
     }
 }
+
+bool BackgroundMixerDialog::isDuckingEnabled() const {
+    return chkDucking->isChecked();
+}
+
 
 void BackgroundMixerDialog::stopPreview() {
     playerVoice->stop();

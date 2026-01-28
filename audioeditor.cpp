@@ -25,7 +25,7 @@
 #include <QDialogButtonBox>
 #include <QThread> 
 #include <QtEndian>
-
+// debut modif
 // ============================================================================
 // CODE EXISTANT AVEC MODIFICATIONS
 // ============================================================================
@@ -154,6 +154,7 @@ void AudioEditor::openBackgroundMixer()
         
         float vol = dlg.getVolume();
         float offset = dlg.getOffsetSeconds(); 
+        bool ducking = dlg.isDuckingEnabled();
 
         // 3. Traitement (Barre de chargement)
         QProgressDialog pd(tr("Mixage en cours..."), "", 0, 0, this);
@@ -180,7 +181,7 @@ void AudioEditor::openBackgroundMixer()
             });
         
         // Appel de la fusion
-        merger->mixWithBackground(currentVoiceWav, jingle, vol, offset, outputMix);
+        merger->mixWithBackground(currentVoiceWav, jingle, vol, offset, ducking, outputMix);
         
         // On attend la fin du signal finished ou error
         loop.exec();

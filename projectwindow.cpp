@@ -722,13 +722,37 @@ void ProjectWindow::onMergeFinished(bool success) {
     // --- FIN MODIFICATION ---
 }
 
+// void ProjectWindow::saveOrder()
+// {
+//     QStringList items;
+//     for(int i = 0; i < chronicleListWidget->count(); i++) {
+//         QListWidgetItem *item = chronicleListWidget->item(i);
+//         if (ChronicleWidget *w = qobject_cast<ChronicleWidget*>(chronicleListWidget->itemWidget(item))) {
+//             items << w->getName();
+//         }
+//     }
+//     ProjectManager::savePlaylist(m_projectPath, items);
+// }
+
 void ProjectWindow::saveOrder()
 {
     QStringList items;
     for(int i = 0; i < chronicleListWidget->count(); i++) {
         QListWidgetItem *item = chronicleListWidget->item(i);
+        QString itemName;
+        
+        // Essayer de récupérer le nom depuis le widget
         if (ChronicleWidget *w = qobject_cast<ChronicleWidget*>(chronicleListWidget->itemWidget(item))) {
-            items << w->getName();
+            itemName = w->getName();
+        } 
+        // Fallback : récupérer depuis les données stockées (UserRole)
+        // C'est le cas pendant un drag & drop avant recréation du widget
+        else {
+            itemName = item->data(Qt::UserRole).toString();
+        }
+        
+        if (!itemName.isEmpty()) {
+            items << itemName;
         }
     }
     ProjectManager::savePlaylist(m_projectPath, items);

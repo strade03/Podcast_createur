@@ -8,6 +8,7 @@
 #include <QPushButton>
 #include <QMediaPlayer>
 #include <QAudioOutput>
+#include <QCheckBox>
 
 class BackgroundMixerDialog : public QDialog
 {
@@ -19,6 +20,7 @@ public:
     QString getSelectedJingle() const;
     float getVolume() const; // Retourne entre 0.0 et 1.0
     float getOffsetSeconds() const;
+    bool isDuckingEnabled() const;
 
 private slots:
     void togglePreview();
@@ -46,7 +48,8 @@ private:
     
     QMediaPlayer *playerMusic;
     QAudioOutput *outMusic;
-    
+     QCheckBox *chkDucking;
+     QLabel *lblDuckingInfo;
     bool isPreviewing;
 };
 
